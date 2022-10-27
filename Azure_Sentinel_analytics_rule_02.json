@@ -1,0 +1,279 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspace": {
+            "type": "String"
+        }
+    },
+    "resources": [
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/7419b510-2082-4633-aca6-446998f0e12e')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/7419b510-2082-4633-aca6-446998f0e12e')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2022-09-01-preview",
+            "properties": {
+                "displayName": "Detect AppLocker bypass",
+                "description": "",
+                "severity": "High",
+                "enabled": true,
+                "query": "SecurityAlert\r\n| where AlertSeverity == \"High\" and AlertName contains \"Potential\" and ProviderName == \"Azure Security Center\"\r\n| extend HostCustomEntity = tostring(parse_json(ExtendedProperties).[\"Compromised Host\"])\n",
+                "queryFrequency": "PT5H",
+                "queryPeriod": "PT5H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "tactics": [
+                    "Execution"
+                ],
+                "techniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": true,
+                        "reopenClosedIncident": true,
+                        "lookbackDuration": "PT5H",
+                        "matchingMethod": "Selected",
+                        "groupByEntities": [
+                            "Host"
+                        ],
+                        "groupByAlertDetails": null,
+                        "groupByCustomDetails": null
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "SingleAlert"
+                },
+                "alertDetailsOverride": null,
+                "customDetails": null,
+                "entityMappings": [
+                    {
+                        "entityType": "Host",
+                        "fieldMappings": [
+                            {
+                                "identifier": "FullName",
+                                "columnName": "HostCustomEntity"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null
+            }
+        },
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/eb0146bd-fce2-41a4-8ada-2f4b5767af1e')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/eb0146bd-fce2-41a4-8ada-2f4b5767af1e')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2022-09-01-preview",
+            "properties": {
+                "displayName": "pbbergs - Detect Azure VM Deletion",
+                "description": "",
+                "severity": "High",
+                "enabled": true,
+                "query": "AzureActivity\r\n| where OperationName == 'Delete Virtual Machine'\r\n| where ActivityStatus == 'Accepted'\r\n| extend AccountCustomEntity = Caller\r\n| extend IPCustomEntity = CallerIpAddress",
+                "queryFrequency": "PT5M",
+                "queryPeriod": "PT5H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "tactics": [
+                    "Impact"
+                ],
+                "techniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": true,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "PT5H",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [],
+                        "groupByAlertDetails": null,
+                        "groupByCustomDetails": null
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "SingleAlert"
+                },
+                "alertDetailsOverride": null,
+                "customDetails": null,
+                "entityMappings": [
+                    {
+                        "entityType": "Account",
+                        "fieldMappings": [
+                            {
+                                "identifier": "FullName",
+                                "columnName": "AccountCustomEntity"
+                            }
+                        ]
+                    },
+                    {
+                        "entityType": "IP",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Address",
+                                "columnName": "IPCustomEntity"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null
+            }
+        },
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/ffcf11a0-fffd-4638-a671-cba086e70676')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/ffcf11a0-fffd-4638-a671-cba086e70676')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2022-09-01-preview",
+            "properties": {
+                "displayName": "pbbergs-Azure Activity",
+                "description": "",
+                "severity": "High",
+                "enabled": true,
+                "query": " AzureActivity\r\n  | where OperationNameValue == \"microsoft.storage/storageaccounts/listkeys/action\"\r\n  | where ActivityStatusValue == \"Succeeded\" \r\n  | join kind= inner (\r\n      AzureActivity\r\n      | where OperationNameValue == \"microsoft.storage/storageaccounts/listkeys/action\"\r\n      | where ActivityStatusValue == \"Succeeded\" \r\n      | project ExpectedIpAddress=CallerIpAddress, Caller \r\n      | evaluate autocluster()\r\n  ) on Caller \r\n  | where CallerIpAddress != ExpectedIpAddress\r\n  | summarize StartTime = min(TimeGenerated), EndTime = max(TimeGenerated), ResourceIds = make_set(ResourceId), ResourceIdCount = dcount(ResourceId) by OperationNameValue, Caller, CallerIpAddress\r\n  | extend timestamp = StartTime, AccountCustomEntity = Caller, IPCustomEntity = CallerIpAddress",
+                "queryFrequency": "PT5H",
+                "queryPeriod": "PT5H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "tactics": [
+                    "InitialAccess"
+                ],
+                "techniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": true,
+                        "reopenClosedIncident": true,
+                        "lookbackDuration": "PT5H",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": []
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "SingleAlert"
+                },
+                "alertDetailsOverride": null,
+                "customDetails": null,
+                "entityMappings": [
+                    {
+                        "entityType": "Account",
+                        "fieldMappings": [
+                            {
+                                "identifier": "FullName",
+                                "columnName": "AccountCustomEntity"
+                            }
+                        ]
+                    },
+                    {
+                        "entityType": "IP",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Address",
+                                "columnName": "IPCustomEntity"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null
+            }
+        },
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/8836e6d4-44e1-4b40-b969-96d52d599acc')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/8836e6d4-44e1-4b40-b969-96d52d599acc')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2022-09-01-preview",
+            "properties": {
+                "displayName": "pbbergsNewDetectionRule",
+                "description": "",
+                "severity": "High",
+                "enabled": true,
+                "query": "SecurityAlert\r\n| where AlertSeverity == \"High\" and AlertName contains \"Potential attempt to bypass AppLocker detected\"  and ProviderName == \"Azure Security Center\"\r\n| extend HostCustomEntity = tostring(parse_json(Entities)[0].HostName)",
+                "queryFrequency": "PT15M",
+                "queryPeriod": "PT5H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "tactics": [
+                    "Execution"
+                ],
+                "techniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": false,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "PT5H",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [],
+                        "groupByAlertDetails": null,
+                        "groupByCustomDetails": null
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "SingleAlert"
+                },
+                "alertDetailsOverride": null,
+                "customDetails": null,
+                "entityMappings": [
+                    {
+                        "entityType": "Host",
+                        "fieldMappings": [
+                            {
+                                "identifier": "FullName",
+                                "columnName": "HostCustomEntity"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null
+            }
+        },
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/2e5df644-ebce-46ec-98c2-4d4d80350b04')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/2e5df644-ebce-46ec-98c2-4d4d80350b04')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "MicrosoftSecurityIncidentCreation",
+            "apiVersion": "2022-09-01-preview",
+            "properties": {
+                "displayName": "Create incidents based on Azure Security Center alerts",
+                "description": "Create incidents based on all alerts generated in Azure Security Center",
+                "enabled": true,
+                "productFilter": "Azure Security Center",
+                "severitiesFilter": null,
+                "displayNamesFilter": null,
+                "displayNamesExcludeFilter": null,
+                "alertRuleTemplateName": null
+            }
+        },
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/8836e6d4-44e1-4b40-b969-96d52d599acc/actions/60737ef53ea6475bb57de8a2ff81c302')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/8836e6d4-44e1-4b40-b969-96d52d599acc/60737ef53ea6475bb57de8a2ff81c302')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules/actions",
+            "apiVersion": "2022-09-01-preview",
+            "properties": {
+                "ruleId": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/8836e6d4-44e1-4b40-b969-96d52d599acc')]",
+                "triggerUri": "[listCallbackURL(concat('/subscriptions/58f1e2a5-9c97-4c56-9753-df141ad91caa/resourceGroups/pbbergs_Resource_Group/providers/Microsoft.Logic/workflows/pbbergsNotifyAdmins','/triggers/When_a_response_to_an_Azure_Sentinel_alert_is_triggered'),'2016-06-01').value]",
+                "logicAppResourceId": "/subscriptions/58f1e2a5-9c97-4c56-9753-df141ad91caa/resourceGroups/pbbergs_Resource_Group/providers/Microsoft.Logic/workflows/pbbergsNotifyAdmins",
+                "operatesOn": "Alert"
+            },
+            "dependsOn": [
+                "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/8836e6d4-44e1-4b40-b969-96d52d599acc')]"
+            ]
+        }
+    ]
+}
